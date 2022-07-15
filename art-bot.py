@@ -156,6 +156,7 @@ def respond(client: RTMClient, event: dict):
 
         print(f'Gating {from_channel} {am_i_DMed} {am_i_mentioned}')
 
+
         print(f'Query was: {plain_text}')
 
         # We only want to respond if in a DM channel or we are mentioned specifically in another channel
@@ -232,13 +233,12 @@ def respond(client: RTMClient, event: dict):
                 'function': brew_list.specific_rpms_for_image
             },
             {
-                #'regex': r'^check commit (?P<commit>https://github.com(?:/[^/]+)*/(commit/[0-9a-f]{40}|pull/[0-9]+))$',
-                'regex': r'^check commit (?P<url>https://github.com(?:/[^/]+)*/commit/[0-9a-f]{40})$',
+                'regex': r'^check commit (?P<url>https://github.com(?:/[^/]+)*/commit/[0-9a-f]{40}) in %(major_minor)s$' % re_snippets,
                 'flag': re.I,
                 'function': buildinfo.check_github_commit
             },
             {
-                'regex': r'^check pr (?P<url>https://github.com(?:/[^/]+)*/pull/[0-9]+)$',
+                'regex': r'^check pr (?P<url>https://github.com(?:/[^/]+)*/pull/[0-9]+) in %(major_minor)s$' % re_snippets,
                 'flag': re.I,
                 'function': buildinfo.check_github_pr
             },

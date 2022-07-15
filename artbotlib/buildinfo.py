@@ -4,7 +4,7 @@ import re
 import requests
 
 from . import util
-from .pipeline_image_util import github_to_distgit
+from . import pipeline_image_util
 
 
 def buildinfo_for_release(so, name, release_img):
@@ -132,7 +132,9 @@ def check_github_commit(so, url):
     so.say(f'WIP - {url}')
 
 
-def check_github_pr(so, url):
+def check_github_pr(so, url, major, minor):
+    ocp_version = f'{major}.{minor}'
+
     # Tasnform PR URL to API URL
     # e.g. https://github.com/openshift/ironic-image/pull/282 will become
     # https://api.github.com/repos/openshift/ironic-image/pulls/282
@@ -145,4 +147,18 @@ def check_github_pr(so, url):
         so.say(f'Failed getting PR info for {api_url}')
         return
     merge_commit_sha = response.json().get('merge_commit_sha')
-    so.say(f'WIP - merge commit SHA = {merge_commit_sha}')
+
+    # Get distgit package ID
+    github_repo_name = url.split('/')[4]
+    distgit_mappings = pipeline_image_util.github_to_distgit(github_repo_name, ocp_version)
+    if not distgit_mappings:
+        so.say(f'Could not find distgit mapping for github repo {github_repo_name}')
+        return
+    distgit_name = distgit_mappings[0]
+
+    # Get Brew package name
+    brew_name = pipeline_image_util.distgit_to_brew(
+        distgit_name=distgit_name,
+        version=ocp_version
+    )
+    so.say(brew_name)
