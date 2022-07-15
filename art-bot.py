@@ -14,7 +14,7 @@ import threading
 import random
 
 import umb
-from artbotlib.buildinfo import buildinfo_for_release
+from artbotlib import buildinfo
 from artbotlib.translation import translate_names
 from artbotlib.util import cmd_assert, please_notify_art_team_of_error, lookup_channel
 from artbotlib.formatting import extract_plain_text, repeat_in_chunks
@@ -54,6 +54,7 @@ _*ART build info:*_
 * What rpms were used in the latest image builds for `major.minor`?
 * What rpms are in image `image-nvr`?
 * Which rpm `rpm1,rpm2,...` is in image `image-nvr`?
+* Check commit [GitHub PR or commit URL]
 
 _*misc:*_
 * How can I get ART to build a new image?
@@ -201,7 +202,7 @@ def respond(client: RTMClient, event: dict):
             {
                 'regex': r'^%(wh)s build of %(name)s is in (?P<release_img>[-.:/#\w]+)$' % re_snippets,
                 'flag': re.I,
-                'function': buildinfo_for_release
+                'function': buildinfo.buildinfo_for_release
             },
             {
                 'regex': r'^%(wh)s (?P<data_type>[\w.-]+) are associated with (?P<release_tag>[\w.-]+)$' % re_snippets,
@@ -229,6 +230,17 @@ def respond(client: RTMClient, event: dict):
                 'regex': r'^%(wh)s rpms? (?P<rpms>[-\w.,* ]+) (is|are) in image %(nvr)s$' % re_snippets,
                 'flag': re.I,
                 'function': brew_list.specific_rpms_for_image
+            },
+            {
+                #'regex': r'^check commit (?P<commit>https://github.com(?:/[^/]+)*/(commit/[0-9a-f]{40}|pull/[0-9]+))$',
+                'regex': r'^check commit (?P<url>https://github.com(?:/[^/]+)*/commit/[0-9a-f]{40})$',
+                'flag': re.I,
+                'function': buildinfo.check_github_commit
+            },
+            {
+                'regex': r'^check pr (?P<url>https://github.com(?:/[^/]+)*/pull/[0-9]+)$',
+                'flag': re.I,
+                'function': buildinfo.check_github_commit
             },
 
             # ART advisory info:

@@ -122,3 +122,7 @@ def brew_build_url(nvr):
         return None
 
     return f"https://brewweb.engineering.redhat.com/brew/buildinfo?buildID={build['id']}"
+
+
+def check_github_commit(so, url):
+    so.say(f'WIP - {url}')
