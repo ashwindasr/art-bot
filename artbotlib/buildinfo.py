@@ -1,7 +1,11 @@
 import json
 import re
 
+import requests
+
 from . import util
+from .pipeline_image_util import github_to_distgit
+
 
 def buildinfo_for_release(so, name, release_img):
 
@@ -126,3 +130,19 @@ def brew_build_url(nvr):
 
 def check_github_commit(so, url):
     so.say(f'WIP - {url}')
+
+
+def check_github_pr(so, url):
+    # Tasnform PR URL to API URL
+    # e.g. https://github.com/openshift/ironic-image/pull/282 will become
+    # https://api.github.com/repos/openshift/ironic-image/pulls/282
+    api_url = url.replace('https://github.com', 'https://api.github.com/repos')
+    api_url = api_url.replace('pull', 'pulls')
+
+    # Get the merge commit SHA
+    response = requests.get(api_url)
+    if response.status_code != 200:
+        so.say(f'Failed getting PR info for {api_url}')
+        return
+    merge_commit_sha = response.json().get('merge_commit_sha')
+    so.say(f'WIP - merge commit SHA = {merge_commit_sha}')

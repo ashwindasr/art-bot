@@ -240,7 +240,7 @@ def respond(client: RTMClient, event: dict):
             {
                 'regex': r'^check pr (?P<url>https://github.com(?:/[^/]+)*/pull/[0-9]+)$',
                 'flag': re.I,
-                'function': buildinfo.check_github_commit
+                'function': buildinfo.check_github_pr
             },
 
             # ART advisory info:
