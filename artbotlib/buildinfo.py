@@ -3,7 +3,7 @@ import re
 
 import requests
 
-from . import util
+from . import util, exceptions
 from . import pipeline_image_util
 
 
@@ -134,6 +134,7 @@ def check_github_commit(so, url):
 
 def check_github_pr(so, url, major, minor):
     ocp_version = f'{major}.{minor}'
+    so.say(f'Checking build history, this may take a while...')
 
     # Tasnform PR URL to API URL
     # e.g. https://github.com/openshift/ironic-image/pull/282 will become
@@ -150,15 +151,62 @@ def check_github_pr(so, url, major, minor):
 
     # Get distgit package ID
     github_repo_name = url.split('/')[4]
-    distgit_mappings = pipeline_image_util.github_to_distgit(github_repo_name, ocp_version)
-    if not distgit_mappings:
-        so.say(f'Could not find distgit mapping for github repo {github_repo_name}')
+    try:
+        distgit_mappings = pipeline_image_util.github_to_distgit(github_repo_name, ocp_version)
+    except exceptions.NullDataReturned as e:
+        so.say(e)
+        return
+    except exceptions.KerberosAuthenticationError as e:
+        so.say(str(e))
         return
     distgit_name = distgit_mappings[0]
 
     # Get Brew package name
-    brew_name = pipeline_image_util.distgit_to_brew(
-        distgit_name=distgit_name,
-        version=ocp_version
-    )
-    so.say(brew_name)
+    try:
+        brew_name = pipeline_image_util.distgit_to_brew(
+            distgit_name=distgit_name,
+            version=ocp_version
+        )
+    except exceptions.DistgitNotFound as e:
+        so.say(e)
+        return
+
+    # Get brew package id
+    try:
+        brew_id = pipeline_image_util.get_brew_id(brew_name)
+    except exceptions.KojiClientError:
+        so.say('Failed to connect to Brew.')
+    except exceptions.BrewIdNotFound:
+        so.say(f"Brew ID not found for brew package `{brew_name}`. Check API call.")
+
+    # Get brew builds
+    koji_api = util.koji_client_session()
+    builds = koji_api.listBuilds(packageID=brew_id)
+
+    # For each builds
+    for build in builds:
+        build_id = build["build_id"]
+        build_url = f'https://brewweb.engineering.redhat.com/brew/buildinfo?buildID={build_id}'
+
+        # Get pullspec
+        try:
+            pullspec = build['extra']['typeinfo']['image']['index']['pull'][0]
+        except TypeError:
+            print(f'Failed getting pullspec for build {build_url}')
+            continue
+
+        # Get image info
+        rc, stdout, stderr = util.cmd_gather(f'oc image info {pullspec} -o json --filter-by-os linux/amd64')
+        if rc:
+            so.say(f'Failed getting image info for {pullspec}')
+            continue
+        image_info = json.loads(stdout)
+
+        # Check commit
+        commit_id = image_info['config']['config']['Labels']['io.openshift.build.commit.id']
+        so.say(f'Commit ID: {commit_id}')
+        if commit_id == merge_commit_sha:
+            so.say(f'Found commit {merge_commit_sha} in build {build_url}')
+            return
+
+    so.say(f'Commit {commit_id} not found in build history for brew package {brew_name}')
