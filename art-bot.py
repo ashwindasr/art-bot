@@ -14,14 +14,13 @@ import threading
 import random
 
 import umb
-from artbotlib.buildinfo import buildinfo_for_release
+from artbotlib.buildinfo import buildinfo_for_release, kernel_info
 from artbotlib.translation import translate_names
-from artbotlib.util import cmd_assert, please_notify_art_team_of_error, lookup_channel
+from artbotlib.util import lookup_channel
 from artbotlib.formatting import extract_plain_text, repeat_in_chunks
 from artbotlib.slack_output import SlackOutput
 from artbotlib import brew_list, elliott
-from artbotlib.pipeline_image_names import pipeline_from_distgit, pipeline_from_github, pipeline_from_brew, \
-    pipeline_from_cdn, pipeline_from_delivery
+from artbotlib.pipeline_image_names import image_pipeline
 from artbotlib.nightly_color import nightly_color_status
 
 logger = logging.getLogger()
@@ -50,6 +49,7 @@ _*ART releases:*_
 * What (commits|catalogs|distgits|nvrs|images) are associated with `release-tag`?
 * Image list advisory `advisory_id`
 * Alert if `release_url` (stops being blue|fails|is rejected|is red|is accepted|is green)
+* What kernel is used in `release image name or pullspec`?
 
 _*ART build info:*_
 * Where in `major.minor` (is|are) the `name1,name2,...` (RPM|package) used?
@@ -64,7 +64,8 @@ _*misc:*_
 
 
 def show_how_to_add_a_new_image(so):
-    so.say('You can find documentation for that process here: https://mojo.redhat.com/docs/DOC-1179058#jive_content_id_Getting_Started')
+    so.say(
+        'You can find documentation for that process here: https://mojo.redhat.com/docs/DOC-1179058#jive_content_id_Getting_Started')
 
 
 bot_config = {}
@@ -172,7 +173,7 @@ def respond(client: RTMClient, event: dict):
             alt_username=alt_username,
         )
 
-        so.monitoring_say(f"<@{user_id}> asked: {plain_text}")
+        # so.monitoring_say(f"<@{user_id}> asked: {plain_text}")
 
         re_snippets = dict(
             major_minor=r'(?P<major>\d)\.(?P<minor>\d+)',
@@ -189,10 +190,11 @@ def respond(client: RTMClient, event: dict):
             # 'flag': flag(s)
             # 'function': function (without parenthesis)
 
-            {'regex': r"^\W*(hi|hey|hello|howdy|what'?s? up|yo|welcome|greetings)\b",
-             'flag': re.I,
-             'function': greet_user
-             },
+            {
+                'regex': r"^\W*(hi|hey|hello|howdy|what'?s? up|yo|welcome|greetings)\b",
+                'flag': re.I,
+                'function': greet_user
+            },
             {
                 'regex': r'^help$',
                 'flag': re.I,
@@ -209,6 +211,11 @@ def respond(client: RTMClient, event: dict):
                 'regex': r'^%(wh)s (?P<data_type>[\w.-]+) are associated with (?P<release_tag>[\w.-]+)$' % re_snippets,
                 'flag': re.I,
                 'function': brew_list.list_component_data_for_release_tag
+            },
+            {
+                'regex': r'^What kernel is used in (?P<release_img>[-.:/#\w]+)$',
+                'flag': re.I,
+                'function': kernel_info
             },
 
             # ART build info
@@ -254,29 +261,9 @@ def respond(client: RTMClient, event: dict):
 
             # ART pipeline
             {
-                'regex': r'^.*(image )?pipeline \s*for \s*github \s*(https://)*(github.com/)*(openshift/)*(?P<github_repo>[a-zA-Z0-9-]+)(/|\.git)?\s*( in \s*(?P<version>\d+.\d+))?\s*$',
+                'regex': r'^.*(image )?pipeline \s*for \s*(?P<type>[a-zA-Z]+) \s*(?P<repo_name>\S+)\s*( in \s*(?P<version>\d+.\d+))?\s*$',
                 'flag': re.I,
-                'function': pipeline_from_github
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*distgit \s*(containers\/){0,1}(?P<distgit_repo_name>[a-zA-Z0-9-]+)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_distgit
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*package \s*(?P<brew_name>\S*)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_brew
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*cdn \s*(?P<cdn_repo_name>\S*)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_cdn
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*image \s*(registry.redhat.io/)*(openshift4/)*(?P<delivery_repo_name>[a-zA-Z0-9-]+)\s*( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_delivery
+                'function': image_pipeline
             },
 
             # Others
@@ -324,7 +311,8 @@ def consumer_start(topic, callback_handler, durable=False, user_data=None):
         client_key_path=config["client_key_file"],
         ca_chain_path=config["ca_certs_file"],
     )
-    t = threading.Thread(target=consumer_thread, args=(bot_config["umb"]["client_id"], topic, callback_handler, consumer, durable, user_data))
+    t = threading.Thread(target=consumer_thread,
+                         args=(bot_config["umb"]["client_id"], topic, callback_handler, consumer, durable, user_data))
     t.start()
     return t
 
@@ -365,7 +353,6 @@ def consumer_thread(client_id, topic, callback_handler, consumer, durable, user_
 
 @click.command()
 def run():
-    
     try:
         config_file = os.environ.get("ART_BOT_SETTINGS_YAML", f"{os.environ['HOME']}/.config/art-bot/settings.yaml")
         with open(config_file, 'r') as stream:
@@ -409,7 +396,8 @@ def run():
                     raise Exception(f"config must specify a file for umb {umbfile}")
                 bot_config["umb"][umbfile] = abs_path_home(bot_config["umb"][umbfile])
                 if not os.path.isfile(bot_config["umb"][umbfile]):
-                    raise Exception(f"config specifies a file for umb {umbfile} that does not exist: {bot_config['umb'][umbfile]}")
+                    raise Exception(
+                        f"config specifies a file for umb {umbfile} that does not exist: {bot_config['umb'][umbfile]}")
         except Exception as exc:
             print(f"Error in umb configuration: {exc}")
             exit(1)
