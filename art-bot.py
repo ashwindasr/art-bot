@@ -14,13 +14,14 @@ import threading
 import random
 
 import umb
-from artbotlib.buildinfo import buildinfo_for_release, kernel_info
+from artbotlib.buildinfo import buildinfo_for_release, kernel_info, alert_on_build_complete
 from artbotlib.translation import translate_names
 from artbotlib.util import lookup_channel
 from artbotlib.formatting import extract_plain_text, repeat_in_chunks
 from artbotlib.slack_output import SlackOutput
 from artbotlib import brew_list, elliott
-from artbotlib.pipeline_image_names import image_pipeline
+from artbotlib.pipeline_image_names import pipeline_from_distgit, pipeline_from_github, pipeline_from_brew, \
+    pipeline_from_cdn, pipeline_from_delivery
 from artbotlib.nightly_color import nightly_color_status
 
 logger = logging.getLogger()
@@ -64,8 +65,7 @@ _*misc:*_
 
 
 def show_how_to_add_a_new_image(so):
-    so.say(
-        'You can find documentation for that process here: https://mojo.redhat.com/docs/DOC-1179058#jive_content_id_Getting_Started')
+    so.say('You can find documentation for that process here: https://mojo.redhat.com/docs/DOC-1179058#jive_content_id_Getting_Started')
 
 
 bot_config = {}
@@ -78,11 +78,12 @@ def on_load(client: RTMClient, event: dict):
     try:
         bot_config["self"] = {"id": r.data["user_id"], "name": r.data["user"]}
         if "monitoring_channel" not in bot_config:
-            raise Exception("No monitoring_channel configured.")
-        found = lookup_channel(web_client, bot_config["monitoring_channel"], only_private=True)
-        if not found:
-            raise Exception(f"Invalid monitoring channel configured: {bot_config['monitoring_channel']}")
-        bot_config["monitoring_channel_id"] = found["id"]
+            print("Warning: no monitoring_channel configured.")
+        else:
+            found = lookup_channel(web_client, bot_config["monitoring_channel"], only_private=True)
+            if not found:
+                raise Exception(f"Invalid monitoring channel configured: {bot_config['monitoring_channel']}")
+            bot_config["monitoring_channel_id"] = found["id"]
 
         bot_config.setdefault("friendly_channels", [])
         bot_config["friendly_channel_ids"] = []
@@ -168,12 +169,12 @@ def respond(client: RTMClient, event: dict):
             web_client=web_client,
             event=event,
             target_channel_id=target_channel_id,
-            monitoring_channel_id=bot_config["monitoring_channel_id"],
+            monitoring_channel_id=bot_config.get("monitoring_channel_id", None),
             thread_ts=thread_ts,
             alt_username=alt_username,
         )
 
-        # so.monitoring_say(f"<@{user_id}> asked: {plain_text}")
+        so.monitoring_say(f"<@{user_id}> asked: {plain_text}")
 
         re_snippets = dict(
             major_minor=r'(?P<major>\d)\.(?P<minor>\d+)',
@@ -239,6 +240,12 @@ def respond(client: RTMClient, event: dict):
                 'flag': re.I,
                 'function': brew_list.specific_rpms_for_image
             },
+            {
+                'regex': r'^alert ?(if|when|on)? build (?P<build_id>\d+|https\://brewweb.engineering.redhat.com/brew/buildinfo\?buildID=\d+) completes$',
+                'flag': re.I,
+                'function': alert_on_build_complete,
+                'user_id': True
+            },
 
             # ART advisory info:
             {
@@ -261,9 +268,29 @@ def respond(client: RTMClient, event: dict):
 
             # ART pipeline
             {
-                'regex': r'^.*(image )?pipeline \s*for \s*(?P<type>[a-zA-Z]+) \s*(?P<repo_name>\S+)\s*( in \s*(?P<version>\d+.\d+))?\s*$',
+                'regex': r'^.*(image )?pipeline \s*for \s*github \s*(https://)*(github.com/)*(openshift/)*(?P<github_repo>[a-zA-Z0-9-]+)(/|\.git)?\s*( in \s*(?P<version>\d+.\d+))?\s*$',
                 'flag': re.I,
-                'function': image_pipeline
+                'function': pipeline_from_github
+            },
+            {
+                'regex': r'^.*(image )?pipeline \s*for \s*distgit \s*(containers\/){0,1}(?P<distgit_repo_name>[a-zA-Z0-9-]+)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
+                'flag': re.I,
+                'function': pipeline_from_distgit
+            },
+            {
+                'regex': r'^.*(image )?pipeline \s*for \s*package \s*(?P<brew_name>\S*)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
+                'flag': re.I,
+                'function': pipeline_from_brew
+            },
+            {
+                'regex': r'^.*(image )?pipeline \s*for \s*cdn \s*(?P<cdn_repo_name>\S*)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
+                'flag': re.I,
+                'function': pipeline_from_cdn
+            },
+            {
+                'regex': r'^.*(image )?pipeline \s*for \s*image \s*(registry.redhat.io/)*(openshift4/)*(?P<delivery_repo_name>[a-zA-Z0-9-]+)\s*( \s*in \s*(?P<version>\d+.\d+))?\s*$',
+                'flag': re.I,
+                'function': pipeline_from_delivery
             },
 
             # Others
@@ -311,8 +338,7 @@ def consumer_start(topic, callback_handler, durable=False, user_data=None):
         client_key_path=config["client_key_file"],
         ca_chain_path=config["ca_certs_file"],
     )
-    t = threading.Thread(target=consumer_thread,
-                         args=(bot_config["umb"]["client_id"], topic, callback_handler, consumer, durable, user_data))
+    t = threading.Thread(target=consumer_thread, args=(bot_config["umb"]["client_id"], topic, callback_handler, consumer, durable, user_data))
     t.start()
     return t
 
@@ -353,6 +379,7 @@ def consumer_thread(client_id, topic, callback_handler, consumer, durable, user_
 
 @click.command()
 def run():
+    
     try:
         config_file = os.environ.get("ART_BOT_SETTINGS_YAML", f"{os.environ['HOME']}/.config/art-bot/settings.yaml")
         with open(config_file, 'r') as stream:
@@ -396,8 +423,7 @@ def run():
                     raise Exception(f"config must specify a file for umb {umbfile}")
                 bot_config["umb"][umbfile] = abs_path_home(bot_config["umb"][umbfile])
                 if not os.path.isfile(bot_config["umb"][umbfile]):
-                    raise Exception(
-                        f"config specifies a file for umb {umbfile} that does not exist: {bot_config['umb'][umbfile]}")
+                    raise Exception(f"config specifies a file for umb {umbfile} that does not exist: {bot_config['umb'][umbfile]}")
         except Exception as exc:
             print(f"Error in umb configuration: {exc}")
             exit(1)

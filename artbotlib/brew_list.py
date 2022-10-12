@@ -3,9 +3,10 @@ import json
 import re
 import urllib.request
 
-from . import util
+import koji
 
-RHCOS_BASE_URL = "https://releases-rhcos-art.cloud.privileged.psi.redhat.com/storage/releases"
+from . import util
+from .constants import RHCOS_BASE_URL
 
 
 @util.cached
@@ -33,20 +34,34 @@ def list_components_for_image(so, nvr):
                filename='{}-rpms.txt'.format(nvr))
 
 
-def specific_rpms_for_image(so, rpms, nvr):
-    matchers = [rpm.strip() for rpm in rpms.split(",")]
+def list_specific_rpms_for_image(matchers, nvr) -> set:
+    print(f'Searching for {matchers} in {nvr}')
     matched = set()
     for rpma in brew_list_components(nvr):
         name, _, _ = rpma.rsplit("-", 2)
         if any(fnmatch.fnmatch(name, m) for m in matchers):
             matched.add(rpma)
+    return matched
+
+
+def specific_rpms_for_image(so, rpms, nvr):
+    matchers = [rpm.strip() for rpm in rpms.split(",")]
+    try:
+        matched = list_specific_rpms_for_image(matchers, nvr)
+    except koji.GenericError as e:
+        msg = [
+            str(e),
+            'Make sure a valid brew build name is provided'
+        ]
+        so.say('\n'.join(msg))
+        return
 
     if not matched:
         so.say(f'Sorry, no rpms matching {matchers} were found in build {nvr}')
     else:
         so.snippet(payload='\n'.join(sorted(matched)),
-               intro=f'The following rpm(s) are used in {nvr}',
-               filename='{}-rpms.txt'.format(nvr))
+                   intro=f'The following rpm(s) are used in {nvr}',
+                   filename='{}-rpms.txt'.format(nvr))
 
 
 def list_component_data_for_release_tag(so, data_type, release_tag):
@@ -183,9 +198,8 @@ def list_uses_of_rpms(so, names, major, minor, search_type="rpm"):
         so.say("Failed to connect to brew; cannot look up components.")
         return
 
-    # determine lowercase list of rpms to search for (case insensitive)
     if search_type.lower() == "rpm":
-        rpms_search = set(name.lower() for name in name_list)
+        rpms_search = set(name_list)
     else:
         try:
             rpms_for_package = _find_rpms_in_packages(koji_api, name_list, major_minor)
@@ -194,7 +208,7 @@ def list_uses_of_rpms(so, names, major, minor, search_type="rpm"):
             so.say(f"Failed looking up packages in brew. Do tags exist for {major_minor}?")
             return
         if not rpms_for_package:
-            so.say(f"Could not find any package(s) named {name_list} in brew.")
+            so.say(f"Could not find any package(s) named {name_list} in brew. Package name(s) need to be exact (case sensitive)")
             return
         if len(name_list) > len(rpms_for_package):
             missing = [name for name in name_list if name not in rpms_for_package]
@@ -325,7 +339,7 @@ def _rhcos_build_url(major_minor, build_id, arch="x86_64"):
 
 def _rhcos_release_url(major_minor, arch="x86_64"):
     arch_suffix = "" if arch == "x86_64" else f"-{arch}"
-    return f"{RHCOS_BASE_URL}/rhcos-{major_minor}{arch_suffix}"
+    return f"{RHCOS_BASE_URL}/storage/releases/rhcos-{major_minor}{arch_suffix}"
 
 
 def _tags_for_version(major_minor):
