@@ -51,7 +51,7 @@ def image_pipeline(so, starting_from, repo_name, version):
 
                 for cdn_repo in cdn_repos:
                     slack_output += f"CDN repo: <{cdn_repo['cdn_repo_url']}|*{cdn_repo['cdn_repo_name']}*>\n"
-                    slack_output += f"Delivery (Comet) repo: <{cdn_repo['delivery']['delivery_repo_url']}|*{cdn_repo['delivery']['delivery_repo']}*>\n\n"
+                    slack_output += f"Delivery (Comet) repo: <{cdn_repo['delivery']['delivery_repo_url']}|*{cdn_repo['delivery']['delivery_repo_name']}*>\n\n"
             so.say(slack_output)
         else:
             so.say(f"{result}")
