@@ -140,10 +140,6 @@ def respond(client, event):
         print('\n----------------- DATA -----------------\n')
         pprint.pprint(data)
 
-        if 'user' not in data:
-            # This message was not from a user; probably the bot hearing itself or another bot
-            return
-
         # Channel we were contacted from.
         from_channel = data['channel']
 
@@ -168,7 +164,10 @@ def respond(client, event):
         if target_channel_id != from_channel:
             thread_ts = None
 
-        alt_username = bot_config["username"]
+        alt_username = None
+        if bot_config["self"]["name"] != bot_config["username"]:
+            alt_username = bot_config["username"]
+
         plain_text = extract_plain_text({"data": data}, alt_username)
 
         print(f'Gating {from_channel}')
