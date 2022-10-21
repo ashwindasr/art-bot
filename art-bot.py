@@ -100,7 +100,7 @@ def show_how_to_add_a_new_image(so):
         'You can find documentation for that process here: https://mojo.redhat.com/docs/DOC-1179058#jive_content_id_Getting_Started')
 
 
-@app.event("message")
+@app.event("app_mention")
 def incoming_message(client, event):
     pprint.pprint(event)
     web_client = client
@@ -140,10 +140,6 @@ def respond(client, event):
         print('\n----------------- DATA -----------------\n')
         pprint.pprint(data)
 
-        if 'user' not in data:
-            # This message was not from a user; probably the bot hearing itself or another bot
-            return
-
         # Channel we were contacted from.
         from_channel = data['channel']
 
@@ -164,31 +160,18 @@ def respond(client, event):
             # in these channels we allow the bot to respond directly instead of DM'ing user back
             target_channel_id = from_channel
 
-        # If we're changing channels, we cannot target the initial message to create a thread
+        # If we changing channels, we cannot target the initial message to create a thread
         if target_channel_id != from_channel:
             thread_ts = None
 
         alt_username = None
-        am_i_DMed = from_channel == direct_message_channel_id
         if bot_config["self"]["name"] != bot_config["username"]:
             alt_username = bot_config["username"]
-            # alternate user must be mentioned specifically, even in a DM, else msg is left to default bot user to handle
-            am_i_mentioned = f'@{bot_config["username"]}' in data['text']
-            am_i_DMed = am_i_DMed and am_i_mentioned
-            plain_text = extract_plain_text({"data": data}, alt_username)
-        else:
-            am_i_mentioned = f'<@{bot_config["self"]["id"]}>' in data['text']
-            plain_text = extract_plain_text({"data": data})
-            if plain_text.startswith("@"):
-                return  # assume it's for an alternate name
 
-        print(f'Gating {from_channel} {am_i_DMed} {am_i_mentioned}')
+        plain_text = extract_plain_text({"data": data}, alt_username)
 
+        print(f'Gating {from_channel}')
         print(f'Query was: {plain_text}')
-
-        # We only want to respond if in a DM channel or we are mentioned specifically in another channel
-        if not am_i_DMed and not am_i_mentioned:
-            return
 
         so = SlackOutput(
             web_client=web_client,
