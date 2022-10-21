@@ -1,23 +1,32 @@
-from . import util
+import requests
+
+API = "http://art-dash-server-art-build-dev.apps.ocp4.prod.psi.redhat.com/api/v1"
 
 
 def translate_names(so, name_type, name, name_type2, major=None, minor=None):
-    if name_type not in ["distgit", "dist-git"]:
-        so.say(f"Sorry, don't know how to look up a {name_type} yet.")
-        return
-    if name_type2 not in ["brew-image", "brew-component"]:
-        so.say(f"Sorry, don't know how to translate to a {name_type2} yet.")
-        return
-    
-    query_name = {
-        "brew-image": "image_name",
-        "brew-component": "component",
-    }[name_type2]
-    major_minor = f"{major}.{minor}" if major and minor else "4.5"
+    so.say("Fetching data. Please wait...")
+    url = f"{API}/translate-names"
+    params = {
+        "name_type": f"{name_type}",
+        "name": f"{name}",
+        "name_type2": f"{name_type2}",
+        "major": f"{major}",
+        "minor": f"{minor}",
 
-    rc, stdout, stderr = util.cmd_gather(f"doozer --disable-gssapi --group openshift-{major_minor} --images {name} images:print \'{{{query_name}}}\' --show-base --show-non-release --short")
-    if rc:
-        so.say(f"Sorry, there is no image dist-git {name} in version {major_minor}.")
-    else:
-        so.say(f"Image dist-git {name} has {name_type2} '{stdout.strip()}' in version {major_minor}.")
+    }
 
+    response = requests.get(url, params=params)
+    result = response.json().get("payload")
+
+    try:
+        if response.status_code == 200:
+            output = result['result']
+            major_minor = result['major_minor']
+
+            so.say(f"Image dist-git {name} has {name_type2} '{output}' in version {major_minor}.")
+
+        else:
+            so.say(f"{result}")
+    except Exception as e:
+        so.say(f"Error. Contact ART Team")
+        so.monitoring_say(f"Error: {e} \nPayload: {result}")

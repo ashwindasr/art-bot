@@ -20,8 +20,7 @@ from artbotlib.util import lookup_channel
 from artbotlib.formatting import extract_plain_text, repeat_in_chunks
 from artbotlib.slack_output import SlackOutput
 from artbotlib import brew_list, elliott
-from artbotlib.pipeline_image_names import pipeline_from_distgit, pipeline_from_github, pipeline_from_brew, \
-    pipeline_from_cdn, pipeline_from_delivery
+from artbotlib.pipeline_image_names import image_pipeline
 from artbotlib.nightly_color import nightly_color_status
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_bolt import App
@@ -273,34 +272,14 @@ def respond(client, event):
             {
                 'regex': r'^what is the %(name_type2)s for %(name_type)s %(name)s(?: in %(major_minor)s)?$' % re_snippets,
                 'flag': re.I,
-                'function': translate_names
+                'function': translate_names  # migrated
             },
 
             # ART pipeline
             {
-                'regex': r'^.*(image )?pipeline \s*for \s*github \s*(https://)*(github.com/)*(openshift/)*(?P<github_repo>[a-zA-Z0-9-]+)(/|\.git)?\s*( in \s*(?P<version>\d+.\d+))?\s*$',
+                'regex': r'^.*(image )?pipeline \s*for \s*(?P<starting_from>[a-zA-Z]+) \s*(?P<repo_name>\S+)\s*( in \s*(?P<version>\d+.\d+))?\s*$',
                 'flag': re.I,
-                'function': pipeline_from_github
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*distgit \s*(containers\/){0,1}(?P<distgit_repo_name>[a-zA-Z0-9-]+)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_distgit
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*package \s*(?P<brew_name>\S*)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_brew
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*cdn \s*(?P<cdn_repo_name>\S*)( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_cdn
-            },
-            {
-                'regex': r'^.*(image )?pipeline \s*for \s*image \s*(registry.redhat.io/)*(openshift4/)*(?P<delivery_repo_name>[a-zA-Z0-9-]+)\s*( \s*in \s*(?P<version>\d+.\d+))?\s*$',
-                'flag': re.I,
-                'function': pipeline_from_delivery
+                'function': image_pipeline  # migrated
             },
 
             # Others
