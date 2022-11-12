@@ -35,11 +35,11 @@ def abs_path_home(filename):
 
 config_file = None
 try:
-    config_file = os.environ.get("ART_BOT_SETTINGS_YAML", f"{os.environ['HOME']}/.config/art-bot/settings2.yaml")
+    config_file = os.environ.get("ART_BOT_SETTINGS_YAML", f"{os.environ['HOME']}/.config/art-bot/settings.yaml")
     with open(config_file, 'r') as stream:
         bot_config.update(yaml.safe_load(stream))
 
-    with open(abs_path_home(bot_config["slack_api_token_file2"]), "r") as stream:
+    with open(abs_path_home(bot_config["slack_api_token_file"]), "r") as stream:
         bot_config["slack_api_token"] = stream.read().strip()
 except yaml.YAMLError as e:
     print(f"Error reading yaml in file {config_file}: {e}")
