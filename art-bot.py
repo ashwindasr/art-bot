@@ -1,14 +1,15 @@
 #!/usr/bin/python3
-
+import signal
 import click
 import os
 import os.path
 import pprint
 import logging
 import yaml
-from multiprocessing.pool import ThreadPool
 import traceback
+from multiprocessing.pool import ThreadPool
 
+from artbotlib.exectools import sigterm_handler
 from artbotlib.regex_mapping import map_command_to_regex
 from artbotlib.util import lookup_channel, log_config
 from artbotlib.formatting import extract_plain_text
@@ -191,6 +192,8 @@ def run(debug):
     handler = SocketModeHandler(app, bot_config["slack_app_token"])
     handler.start()
 
+
+signal.signal(signal.SIGTERM, sigterm_handler)
 
 if __name__ == "__main__":
     run()
