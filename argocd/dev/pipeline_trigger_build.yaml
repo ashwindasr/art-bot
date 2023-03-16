@@ -1,0 +1,18 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: trigger-build
+spec:
+  params:
+    - name: buildConfigWebhookPath
+      type: string
+  steps:
+    - command:
+        - curl
+        - '-X'
+        - POST
+        - '-k'
+        - $(inputs.params.buildConfigWebhookPath)
+      image: registry.redhat.io/ubi7/ubi-minimal
+      name: ''
+      resources: {}

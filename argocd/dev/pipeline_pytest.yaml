@@ -1,0 +1,99 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  annotations:
+    openshift.io/installed-from: tektonhub
+    tekton.dev/categories: Testing
+    tekton.dev/displayName: pytest
+    tekton.dev/pipelines.minVersion: 0.17.0
+    tekton.dev/platforms: 'linux/amd64,linux/s390x,linux/ppc64le'
+    tekton.dev/tags: 'python, pytest'
+  name: pytest
+  labels:
+    app.kubernetes.io/version: '0.2'
+spec:
+  description: This task will run pytest on the provided input.
+  params:
+    - default: 'docker.io/python:3.11.1-bullseye'
+      description: The used Python image
+      name: PYTHON_IMAGE
+      type: string
+    - default: ''
+      description: The additional arguments to be used with pytest
+      name: ARGS
+      type: string
+    - default: .
+      description: The path to the source code
+      name: SOURCE_PATH
+      type: string
+    - default: requirements.txt
+      description: >-
+        The name of the requirements file inside the source location, with
+        fallback to the requirements file in the root location
+      name: REQUIREMENTS_FILE
+      type: string
+    - default: ''
+      description: >-
+        [Custom] The name of the second requirements.txt file. art-bot has
+        requirements-dev.txt.
+      name: REQUIREMENTS_FILE_2
+      type: string
+    - default: pip.conf
+      description: The name of the custom pip config file.
+      name: PIP_CONF_FILE
+      type: string
+  steps:
+    - env:
+        - name: PARAM_PIP_CONF_FILE
+          value: $(params.PIP_CONF_FILE)
+        - name: WORKSPACE_PIP_CONF_BOUND
+          value: $(workspaces.pip-conf.bound)
+        - name: WORKSPACE_PIP_CONF_PATH
+          value: $(workspaces.pip-conf.path)
+      image: $(params.PYTHON_IMAGE)
+      name: unit-test
+      resources: {}
+      script: |
+        export PATH=$PATH:$HOME/.local/bin
+
+        if [ "${WORKSPACE_PIP_CONF_BOUND}" = "true" ] ; then
+          export PIP_CONFIG_FILE="${WORKSPACE_PIP_CONF_PATH}/${PARAM_PIP_CONF_FILE}"
+        fi
+
+        if [ -e "$(params.SOURCE_PATH)"/"$(params.REQUIREMENTS_FILE)" ];
+        then
+          pip install -r "$(params.SOURCE_PATH)"/"$(params.REQUIREMENTS_FILE)"
+
+          if [ -e "$(params.SOURCE_PATH)"/"$(params.REQUIREMENTS_FILE_2)"  ]
+          then
+            pip install -r "$(params.SOURCE_PATH)"/"$(params.REQUIREMENTS_FILE)"
+          fi
+
+          pip show pytest || {
+            printf "###\nWarning: Pytest is missing in your test requirements file\n###";
+            pip install pytest
+          }
+        else
+          if [ -e "$(params.REQUIREMENTS_FILE)" ];
+          then
+            pip install -r "$(params.REQUIREMENTS_FILE)"
+
+            if [ -e "$(params.REQUIREMENTS_FILE_2)" ]
+            then
+              pip install -r "$(params.REQUIREMENTS_FILE_2)"
+            fi
+
+          fi
+          pip install pytest
+        fi
+        if [ -z "$(params.ARGS)" ]; then
+          pytest "$(params.SOURCE_PATH)"
+        else
+          pytest "$(params.ARGS)" "$(params.SOURCE_PATH)"
+        fi
+      workingDir: $(workspaces.source.path)
+  workspaces:
+    - name: source
+    - description: The workspace consisting of the custom pip settings.
+      name: pip-conf
+      optional: true
