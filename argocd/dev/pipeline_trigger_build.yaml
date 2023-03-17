@@ -12,9 +12,9 @@ spec:
       env:
         - name: BUILD_CONFIG_WEBHOOK_PATH
           valueFrom:
-            secretKeyRef:
-              name: test-tekton
-              key: webhook-url
+            - secretKeyRef:
+                name: test-tekton
+                key: webhook-url
       script: |
         #!/usr/bin/env python
         import os
