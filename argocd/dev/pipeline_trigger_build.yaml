@@ -7,7 +7,7 @@ spec:
     - name: buildConfigWebhookPath
       type: string
   steps:
-      env:
+    - env:
         - name: BUILD_CONFIG_WEBHOOK_PATH
           valueFrom:
             secretKeyRef:
