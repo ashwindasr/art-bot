@@ -10,12 +10,10 @@ spec:
             secretKeyRef:
               name: test-tekton
               key: webhook-url
-      command:
-        - curl
-        - '-X'
-        - POST
-        - '-k'
-        - $BUILD_CONFIG_WEBHOOK_PATH
+      script: |
+        #!/usr/bin/env sh
+        curl -X POST -k $BUILD_CONFIG_WEBHOOK_PATH
+
       image: registry.redhat.io/ubi7/ubi-minimal
       name: ''
-      resources: {}
+      resources: { }
