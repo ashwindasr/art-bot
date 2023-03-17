@@ -1,0 +1,13 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: pipeline-run-main
+spec:
+  pipelineRef:
+    name: pipeline
+  serviceAccountName: pipeline
+  timeout: 1h0m0s
+  workspaces:
+    - name: pipeline-workspace
+      persistentVolumeClaim:
+        claimName: test
