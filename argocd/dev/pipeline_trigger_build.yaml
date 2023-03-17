@@ -11,9 +11,16 @@ spec:
               name: test-tekton
               key: webhook-url
       script: |
-        #!/usr/bin/env sh
-        curl -X POST -k $BUILD_CONFIG_WEBHOOK_PATH
+        #!/usr/bin/env python
+        import os
+        import requests
+        
+        BUILD_CONFIG_PATH = os.environ["BUILD_CONFIG_WEBHOOK_PATH"]
+        
+        response = requests.post(BUILD_CONFIG_PATH)
+        if response.status_code != 200:
+            raise Exception("Build not triggered")
 
-      image: registry.redhat.io/ubi7/ubi-minimal
+      image: registry.redhat.io/ubi8/python-38
       name: ''
       resources: { }
