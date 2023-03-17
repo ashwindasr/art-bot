@@ -1,0 +1,83 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: pipeline
+spec:
+  tasks:
+    - name: git-clone
+      params:
+        - name: url
+          value: 'https://github.com/openshift-eng/art-bot'
+        - name: revision
+          value: ''
+        - name: refspec
+          value: ''
+        - name: submodules
+          value: 'true'
+        - name: depth
+          value: '1'
+        - name: sslVerify
+          value: 'true'
+        - name: crtFileName
+          value: ca-bundle.crt
+        - name: subdirectory
+          value: ''
+        - name: sparseCheckoutDirectories
+          value: ''
+        - name: deleteExisting
+          value: 'true'
+        - name: httpProxy
+          value: ''
+        - name: httpsProxy
+          value: ''
+        - name: noProxy
+          value: ''
+        - name: verbose
+          value: 'true'
+        - name: gitInitImage
+          value: >-
+            registry.redhat.io/openshift-pipelines/pipelines-git-init-rhel8@sha256:6c3980b3d28c8fb92b17466f5654d5f484ab893f1673ec8f29e49c0d03f8aca9
+        - name: userHome
+          value: /tekton/home
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: pipeline-workspace
+    - name: pytest
+      params:
+        - name: PYTHON_IMAGE
+          value: 'docker.io/python:3.11.1-bullseye'
+        - name: ARGS
+          value: ''
+        - name: SOURCE_PATH
+          value: tests
+        - name: REQUIREMENTS_FILE
+          value: requirements.txt
+        - name: PIP_CONF_FILE
+          value: pip.conf
+        - name: REQUIREMENTS_FILE_2
+          value: requirements-dev.txt
+      runAfter:
+        - git-clone
+      taskRef:
+        kind: Task
+        name: pytest
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+    - name: trigger-build
+      params:
+        - name: buildConfigWebhookPath
+          valueFrom:
+            secretKeyRef:
+              name: test-tekton
+              key: webhook-url
+      runAfter:
+        - pytest
+      taskRef:
+        kind: Task
+        name: trigger-build
+  workspaces:
+    - name: pipeline-workspace
