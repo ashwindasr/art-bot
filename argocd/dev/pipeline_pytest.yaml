@@ -14,7 +14,7 @@ metadata:
 spec:
   description: This task will run pytest on the provided input.
   params:
-    - default: 'docker.io/python:3.11.1-bullseye'
+    - default: 'registry.redhat.io/ubi8/python-39'
       description: The used Python image
       name: PYTHON_IMAGE
       type: string
