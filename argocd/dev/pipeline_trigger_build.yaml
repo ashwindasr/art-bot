@@ -4,7 +4,13 @@ metadata:
   name: trigger-build
 spec:
   steps:
-    - env:
+    - name: install-requests
+      script: |
+        #!/usr/bin/env sh
+        pip install requests
+
+    - name: run-script
+      env:
         - name: BUILD_CONFIG_WEBHOOK_PATH
           valueFrom:
             secretKeyRef:
