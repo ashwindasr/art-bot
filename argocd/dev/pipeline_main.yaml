@@ -68,7 +68,7 @@ spec:
         - name: source
           workspace: pipeline-workspace
     - name: trigger-build
-      params:
+      env:
         - name: buildConfigWebhookPath
           valueFrom:
             secretKeyRef:
