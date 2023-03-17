@@ -8,7 +8,6 @@ spec:
       script: |
         #!/usr/bin/env sh
         pip install requests
-
     - name: run-script
       env:
         - name: BUILD_CONFIG_WEBHOOK_PATH
@@ -28,5 +27,4 @@ spec:
             raise Exception("Build not triggered")
 
       image: registry.redhat.io/ubi8/python-38
-      name: ''
       resources: { }
