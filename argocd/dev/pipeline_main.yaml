@@ -68,12 +68,6 @@ spec:
         - name: source
           workspace: pipeline-workspace
     - name: trigger-build
-      envVar:
-        - name: buildConfigWebhookPath
-          valueFrom:
-            secretKeyRef:
-              name: test-tekton
-              key: webhook-url
       runAfter:
         - pytest
       taskRef:
