@@ -3,9 +3,6 @@ kind: Task
 metadata:
   name: trigger-build
 spec:
-  params:
-    - name: buildConfigWebhookPath
-      type: string
   steps:
     - env:
         - name: BUILD_CONFIG_WEBHOOK_PATH
