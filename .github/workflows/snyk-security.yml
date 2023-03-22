@@ -52,4 +52,4 @@ jobs:
         # Runs Snyk Code (SAST) analysis and uploads result into GitHub.
         # Use || true to not fail the pipeline
       - name: Snyk test
-        run: synk auth $SNYK_TOKEN && snyk test
+        run: synk auth ${{ secrets.SNYK_TOKEN }} && snyk test
