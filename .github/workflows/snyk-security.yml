@@ -13,5 +13,6 @@ jobs:
         uses: snyk/actions/python@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_INTEGRATION_VERSION: python-3.8
         with:
           command: test
