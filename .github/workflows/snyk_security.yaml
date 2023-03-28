@@ -20,6 +20,8 @@ jobs:
         run: echo "This is a PR job-specific step"
       - name: Run Common Steps
         uses: common-job
+        with:
+          foo: bar
 
   push-job:
     runs-on: ubuntu-latest
@@ -30,6 +32,8 @@ jobs:
         run: echo "This is a push job-specific step"
       - name: Run Common Steps
         uses: common-job
+        with:
+          foo: bar
 
   common-job:
     runs-on: ubuntu-latest
