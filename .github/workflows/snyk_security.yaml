@@ -18,11 +18,20 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Run PR job specific steps
         run: echo "This is a PR job-specific step"
-      - name: Run Common Steps
-        uses: common-job
+      - name: Test for open source vulnerabilities and license issues.
+        uses: snyk/actions/python-3.9@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          foo: bar
-
+          command: test
+          args: --all-projects
+      - name: Test for any known security issues using Static Code Analysis.
+        uses: snyk/actions/python-3.9@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: code test
+          args: --all-projects
   push-job:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
@@ -30,14 +39,6 @@ jobs:
       - uses: actions/checkout@v3
       - name: Run Push job specific steps
         run: echo "This is a push job-specific step"
-      - name: Run Common Steps
-        uses: common-job
-        with:
-          foo: bar
-
-  common-job:
-    runs-on: ubuntu-latest
-    steps:
       - name: Test for open source vulnerabilities and license issues.
         uses: snyk/actions/python-3.9@master
         env:
