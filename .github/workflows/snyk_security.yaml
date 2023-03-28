@@ -1,16 +1,39 @@
 name: Snyk Scan
 
-on: [ push, pull_request_target ]
+on:
+  push: { }
+  pull_request_target:
+    types: [ opened ]
+    if: github.actor in ['jupierce', 'sosiouxme', 'thiagoalessio', 'joepvd', 'thegreyd', 'vfreex', 'ashwindasr', 'locriandev', 'Ximinhan']
 
 jobs:
-  snyk:
+  pr-job:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target'
     steps:
       - uses: actions/checkout@v3
       - name: Checkout head repository
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.ref }}
+      - name: Run PR job specific steps
+        run: echo "This is a PR job-specific step"
+      - name: Run Common Steps
+        uses: common-job
+
+  push-job:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Push job specific steps
+        run: echo "This is a push job-specific step"
+      - name: Run Common Steps
+        uses: common-job
+
+  common-job:
+    runs-on: ubuntu-latest
+    steps:
       - name: Test for open source vulnerabilities and license issues.
         uses: snyk/actions/python-3.9@master
         env:
