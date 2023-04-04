@@ -5,7 +5,6 @@ on: [ push, pull_request ]
 jobs:
   snyk:
     runs-on: ubuntu-latest
-    if: github.repository == 'openshift-eng/art-bot'
     steps:
       - name: Checkout the code from the forked branch to run the tests on
         uses: actions/checkout@v3
