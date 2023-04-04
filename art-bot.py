@@ -16,7 +16,7 @@ from artbotlib.formatting import extract_plain_text
 from artbotlib.slack_output import SlackOutput
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_bolt import App
-
+ 
 logger = logging.getLogger()
 
 bot_config = {}
